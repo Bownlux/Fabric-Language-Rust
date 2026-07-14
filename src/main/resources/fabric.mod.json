@@ -11,6 +11,7 @@
 		"sources": "https://github.com/bownlux/fabric-language-rust"
 	},
 	"license": "MIT",
+	"icon": "assets/fabric-language-rust/icon.png",
 	"environment": "*",
 	"languageAdapters": {
 		"rust": "io.github.bownlux.fabricrust.RustLanguageAdapter"
