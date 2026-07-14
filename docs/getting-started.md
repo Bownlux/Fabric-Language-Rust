@@ -17,8 +17,9 @@ Throughout, the two directories are assumed to be siblings:
 
 ## 1. Build fabric-language-rust from source
 
-Nothing is published yet. The adapter jar and the `fabric-rust` SDK crate both come
-from this repo.
+The adapter jar is on [Modrinth](https://modrinth.com/mod/fabric-language-rust), but
+the `fabric-rust` SDK crate isn't on crates.io yet, so as a mod author you want the
+repo cloned and building anyway.
 
 ```sh
 cd ~/mods/fabric-language-rust
