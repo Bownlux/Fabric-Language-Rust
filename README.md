@@ -21,7 +21,8 @@ This is v0.1. The adapter mod is on
 isn't on crates.io yet, so mod authors need this repo cloned for now. The FFI contract
 (ABI version 1) is frozen; crate names and the APIs above it might still change. Fair
 warning: this won't get major updates that often since I'm busy working on
-[RevivalSMP.net](https://RevivalSMP.net) and Retromod.
+[RevivalSMP.net](https://RevivalSMP.net) and Retromod. Issues and PRs are still
+welcome. This is more of a proof of concept, expect slow turnaround.
 
 ## Quickstart for mod authors
 
