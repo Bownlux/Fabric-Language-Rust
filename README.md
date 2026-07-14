@@ -20,7 +20,7 @@ Targets **Minecraft 26.1+**, **Fabric Loader ≥ 0.19**, **Java 25**. See
 >
 > **Maintenance note:** this project won't get major updates that often — most of my
 > time currently goes to [RevivalSMP.net](https://RevivalSMP.net) and Retromod. Issues
-> and PRs are still welcome; expect slow turnaround.
+> and PRs are still welcome. This is more of a proof of concept, expect slow turnaround.
 
 ## Quickstart for mod authors
 
