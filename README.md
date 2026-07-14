@@ -17,6 +17,10 @@ Targets **Minecraft 26.1+**, **Fabric Loader ≥ 0.19**, **Java 25**. See
 > **Status: v0.1 — early, unpublished.** Nothing is on crates.io, Modrinth, or any maven
 > yet; everything is consumed by building this repository from source. The FFI contract
 > (ABI version 1) is frozen, but crate names and APIs above it are provisional.
+>
+> **Maintenance note:** this project won't get major updates that often — most of my
+> time currently goes to [RevivalSMP.net](https://RevivalSMP.net) and Retromod. Issues
+> and PRs are still welcome; expect slow turnaround.
 
 ## Quickstart for mod authors
 
