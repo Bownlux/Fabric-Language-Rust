@@ -10,9 +10,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Per-(mod, library) registration callback object, passed to the consumer library's
  * {@code fabric_rust_register} export through {@link NativeBridge#registerMod}.
  *
- * <p>The native side resolves {@link #register} via
- * {@code GetObjectClass(registrar)} + {@code GetMethodID("register", "(Ljava/lang/String;J)V")}
- * — never via {@code FindClass}.
+ * <p>The native side resolves {@link #register} via {@code GetObjectClass(registrar)} +
+ * {@code GetMethodID("register", "(Ljava/lang/String;J)V")}, never via {@code FindClass}.
  */
 public final class EntrypointRegistrar {
 	private final String libraryName;
@@ -60,7 +59,7 @@ public final class EntrypointRegistrar {
 	 * Looks up a registered entrypoint.
 	 *
 	 * @throws IllegalArgumentException naming the missing entrypoint and listing the ones
-	 *         that <em>were</em> registered
+	 *         that were actually registered
 	 */
 	long requireEntrypoint(String name) {
 		Long fnPtr = entrypoints.get(name);

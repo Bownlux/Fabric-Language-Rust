@@ -18,10 +18,10 @@ import net.fabricmc.loader.api.ModContainer;
 /**
  * Platform detection and jar extraction for bundled native libraries.
  *
- * <p>Platform ids are {@code windows|linux|macos} × {@code x64|arm64}, mapped library file
- * names follow {@link System#mapLibraryName} behavior ({@code lib<name>.dylib} /
- * {@code lib<name>.so} / {@code <name>.dll}). These rules are mirrored by the Gradle build
- * (root {@code build.gradle}) when it packages natives — keep the two in sync.
+ * <p>Platform ids are {@code windows|linux|macos} crossed with {@code x64|arm64}. Library
+ * file names follow {@link System#mapLibraryName} behavior ({@code lib<name>.dylib} /
+ * {@code lib<name>.so} / {@code <name>.dll}). The root {@code build.gradle} duplicates
+ * these rules when it packages natives; if you change them here, change them there too.
  */
 final class NativeLibraryLocator {
 	static final String CACHE_DIR_NAME = ".fabric-language-rust";
@@ -106,9 +106,10 @@ final class NativeLibraryLocator {
 				try {
 					Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
 				} catch (FileAlreadyExistsException | AtomicMoveNotSupportedException e) {
-					// Lost a race with another process, or the FS cannot do atomic moves.
-					// The sha-addressed path guarantees identical content, so an existing
-					// file is fine; otherwise fall back to a plain replace.
+					// Either we lost a race with another process or the FS can't do
+					// atomic moves. The sha-addressed path means an existing file has
+					// identical content, so leave it; otherwise fall back to a plain
+					// replace.
 					if (!Files.isRegularFile(target)) {
 						Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
 					}

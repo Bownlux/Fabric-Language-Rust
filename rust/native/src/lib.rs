@@ -1,14 +1,14 @@
 //! fabric-language-rust trampoline.
 //!
-//! This is the **only** native library with Java-visible symbols. It backs the
+//! This is the only native library with Java-visible symbols. It backs the
 //! `native` methods on `io.github.bownlux.fabricrust.NativeBridge` and forwards
-//! into consumer cdylibs which are opened with `libloading` (dlopen) and expose
-//! exactly one well-known symbol, `fabric_rust_register` (Boundary 2).
+//! into consumer cdylibs, which are opened with `libloading` (dlopen) and expose
+//! a single well-known symbol, `fabric_rust_register` (Boundary 2).
 //!
-//! Every export is panic-proof: bodies run inside [`EnvUnowned::with_env`]
-//! (which wraps the closure in `catch_unwind`) and errors/panics are resolved
-//! with [`ThrowRuntimeExAndDefault`], which throws a `java.lang.RuntimeException`
-//! and returns a default value instead of unwinding across the FFI boundary.
+//! Nothing here may unwind into the JVM. Every export runs its body inside
+//! [`EnvUnowned::with_env`] (which wraps the closure in `catch_unwind`), and
+//! errors or panics are resolved with [`ThrowRuntimeExAndDefault`]: throw a
+//! `java.lang.RuntimeException`, return a default value.
 
 use std::ffi::c_void;
 
@@ -72,10 +72,9 @@ pub extern "system" fn JNI_OnLoad(vm: *mut sys::JavaVM, _reserved: *mut c_void) 
 /// `static native long openLibrary(String absolutePath)`
 ///
 /// Opens a consumer cdylib with `libloading` (dlopen). The [`libloading::Library`]
-/// is intentionally **leaked** (`Box::into_raw`): function pointers handed to
-/// Java must never dangle. Returns the leaked pointer as a `jlong` handle.
-/// On failure throws `java.lang.RuntimeException` (carrying the OS error) and
-/// returns 0.
+/// is leaked on purpose (`Box::into_raw`): function pointers handed to Java must
+/// never dangle. Returns the leaked pointer as a `jlong` handle. On failure,
+/// throws `java.lang.RuntimeException` (carrying the OS error) and returns 0.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_io_github_bownlux_fabricrust_NativeBridge_openLibrary(
     env: *mut sys::JNIEnv,
@@ -94,8 +93,8 @@ pub extern "system" fn Java_io_github_bownlux_fabricrust_NativeBridge_openLibrar
                 .map_err(|e| BridgeError::Msg(format!("openLibrary: invalid path argument: {e}")))?;
 
             // Safety: loading an arbitrary library can run arbitrary
-            // constructors; that is the entire point of this method. The path
-            // was vetted by the Java side (extracted from a mod jar).
+            // constructors; that's what this method exists to do. The Java
+            // side vetted the path (it extracted the file from a mod jar).
             let library = unsafe { libloading::Library::new(&path) }.map_err(|e| {
                 BridgeError::Msg(format!("failed to load native library `{path}`: {e}"))
             })?;

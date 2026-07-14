@@ -16,18 +16,15 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Runs the entire FFI chain without Minecraft:
- * {@code initialize(trampoline)} → {@code openLibrary(example_mod)} → {@code registerMod}
- * → assert ABI + registered names → {@code invokeEntrypoint("init")} → assert the hello
- * line arrived at {@link RustBridge#testSink}. Also asserts the error paths throw cleanly
- * instead of crashing the JVM.
+ * Runs the whole FFI chain without Minecraft: initialize the trampoline, open and register
+ * the example cdylib, check the ABI and registered names, invoke {@code init}, and check
+ * that the hello line arrived at {@link RustBridge#testSink}. Also checks that the error
+ * paths throw instead of crashing the JVM.
  *
- * <p>Requires two system properties (absolute library paths), wired by the Gradle
- * {@code test} task, which builds both cargo crates first:
- * <ul>
- *   <li>{@code flr.test.trampoline} — the trampoline cdylib (crate {@code fabric-language-rust-native})</li>
- *   <li>{@code flr.test.exampleLib} — the example cdylib (crate {@code example-mod})</li>
- * </ul>
+ * <p>Needs two system properties holding absolute library paths, wired by the Gradle
+ * {@code test} task (which builds both cargo crates first): {@code flr.test.trampoline}
+ * for the trampoline cdylib (crate {@code fabric-language-rust-native}) and
+ * {@code flr.test.exampleLib} for the example cdylib (crate {@code example-mod}).
  */
 class NativeBridgeHarnessTest {
 	private static EntrypointRegistrar registrar;

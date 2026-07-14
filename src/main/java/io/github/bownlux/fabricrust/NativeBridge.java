@@ -4,13 +4,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * The single Java-visible surface of the native trampoline (crate {@code native/},
+ * The Java-visible surface of the native trampoline (crate {@code native/},
  * {@code [lib] name = "fabric_language_rust"}).
  *
- * <p>All {@code native} methods of this project live on this one class, backed by that one
- * library — consumer cdylibs never export {@code Java_*} symbols, because with several
- * loaded libraries JVM symbol resolution order is unspecified. No underscores appear in the
- * package, class, or method names, which keeps the JNI symbol mangling trivial:
+ * <p>Every {@code native} method in this project lives on this one class, backed by that one
+ * library. Consumer cdylibs must not export {@code Java_*} symbols: with several native
+ * libraries loaded, the JVM's symbol resolution order is unspecified, so only the trampoline
+ * gets Java-visible exports. There are no underscores in the package, class, or method names,
+ * which keeps the JNI mangling simple:
  * {@code Java_io_github_bownlux_fabricrust_NativeBridge_<method>}.
  */
 final class NativeBridge {
@@ -47,11 +48,11 @@ final class NativeBridge {
 	}
 
 	/**
-	 * dlopens the consumer cdylib at {@code absolutePath} (via {@code libloading}; the library
-	 * is intentionally leaked so registered function pointers never dangle).
+	 * dlopens the consumer cdylib at {@code absolutePath} via {@code libloading}. The library
+	 * is leaked on purpose so registered function pointers never dangle.
 	 *
 	 * @return an opaque non-zero handle
-	 * @throws RuntimeException (thrown from native code) if the library cannot be opened
+	 * @throws RuntimeException (from native code) if the library cannot be opened
 	 */
 	static native long openLibrary(String absolutePath);
 
@@ -59,8 +60,7 @@ final class NativeBridge {
 	 * dlsyms {@code fabric_rust_register} in {@code handle} and calls it with {@code registrar}.
 	 *
 	 * @return the ABI version the library reported
-	 * @throws RuntimeException (thrown from native code) if the symbol is missing or
-	 *         registration fails
+	 * @throws RuntimeException (from native code) if the symbol is missing or registration fails
 	 */
 	static native int registerMod(long handle, EntrypointRegistrar registrar);
 

@@ -19,12 +19,11 @@
 //! export (FFI Boundary 2) plus one panic-catching shim per entrypoint. The
 //! log macros ([`error!`], [`warn!`], [`info!`], [`debug!`], [`trace!`]) upcall
 //! `io.github.bownlux.fabricrust.RustBridge.log(int, String, String)` through
-//! JNI references cached at registration time; before registration (or from a
-//! thread that is not attached to the JVM) they fall back to `eprintln!` and
-//! never panic.
+//! JNI references cached at registration time. Before registration, or on a
+//! thread that isn't attached to the JVM, they fall back to `eprintln!` instead
+//! of panicking.
 //!
-//! Authors who need raw JNI access can use the re-exported [`jni`] crate
-//! (`fabric_rust::jni`).
+//! If you need raw JNI, use the re-exported [`jni`] crate (`fabric_rust::jni`).
 
 /// Re-export of the `jni` crate (version 0.22) for mod authors who want to
 /// drop down to raw JNI.
@@ -59,8 +58,9 @@ pub mod prelude {
     pub use crate::{debug, error, info, trace, warn};
 }
 
-/// Logs at ERROR level (0) via `RustBridge.log`; the tag defaults to the
-/// calling crate's name. Falls back to `eprintln!` when JNI is unavailable.
+/// Logs at ERROR level (0) via `RustBridge.log`. The tag is the calling
+/// crate's name; when JNI isn't available the message goes to `eprintln!`
+/// instead.
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => {
@@ -72,8 +72,8 @@ macro_rules! error {
     };
 }
 
-/// Logs at WARN level (1) via `RustBridge.log`; the tag defaults to the
-/// calling crate's name. Falls back to `eprintln!` when JNI is unavailable.
+/// Logs at WARN level (1); see [`error!`] for how the tag and the
+/// `eprintln!` fallback work.
 #[macro_export]
 macro_rules! warn {
     ($($arg:tt)*) => {
@@ -85,8 +85,7 @@ macro_rules! warn {
     };
 }
 
-/// Logs at INFO level (2) via `RustBridge.log`; the tag defaults to the
-/// calling crate's name. Falls back to `eprintln!` when JNI is unavailable.
+/// Logs at INFO level (2); see [`error!`].
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)*) => {
@@ -98,8 +97,7 @@ macro_rules! info {
     };
 }
 
-/// Logs at DEBUG level (3) via `RustBridge.log`; the tag defaults to the
-/// calling crate's name. Falls back to `eprintln!` when JNI is unavailable.
+/// Logs at DEBUG level (3); see [`error!`].
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {
@@ -111,8 +109,7 @@ macro_rules! debug {
     };
 }
 
-/// Logs at TRACE level (4) via `RustBridge.log`; the tag defaults to the
-/// calling crate's name. Falls back to `eprintln!` when JNI is unavailable.
+/// Logs at TRACE level (4); see [`error!`].
 #[macro_export]
 macro_rules! trace {
     ($($arg:tt)*) => {

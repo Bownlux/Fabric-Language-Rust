@@ -25,11 +25,9 @@ jobs:
       - name: Build and test
         run: ./gradlew build test --stacktrace
 
-  # ---------------------------------------------------------------------------
-  # Release cross-build matrix: on tag pushes, build the trampoline + example
-  # cdylibs for all five supported targets. release-package (below) merges them
-  # into the shipped jars — dev/branch builds still ship host natives only.
-  # ---------------------------------------------------------------------------
+  # Release cross-build matrix. On tag pushes, build the trampoline + example
+  # cdylibs for all five supported targets; release-package below merges them
+  # into the shipped jars. Dev/branch builds still ship host natives only.
   release-natives:
     if: startsWith(github.ref, 'refs/tags/')
     strategy:
@@ -57,13 +55,11 @@ jobs:
             rust/target/${{ matrix.target }}/release/*.so
             rust/target/${{ matrix.target }}/release/*.dylib
 
-  # ---------------------------------------------------------------------------
-  # Release packaging: stage the cross-compiled natives as
+  # Release packaging. Stage the cross-compiled natives as
   # <staging>/natives/<platform>/<mapped-lib-name> (cargo already emits the
   # platform-correct file names: <name>.dll / lib<name>.so / lib<name>.dylib),
   # rebuild the jars with -PextraNativesDir so both the adapter jar and the
   # example jar bundle all five platforms, then attach them to the release.
-  # ---------------------------------------------------------------------------
   release-package:
     if: startsWith(github.ref, 'refs/tags/')
     needs: release-natives

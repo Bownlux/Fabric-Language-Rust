@@ -1,5 +1,5 @@
-// :example — packages the example Rust mod jar.
-// Plain jar: no Loom, no Java sources; just fabric.mod.json + the host-platform cdylib.
+// :example packages the example Rust mod jar. Plain jar plugin, no Loom, no Java
+// sources; the jar is just fabric.mod.json plus the host-platform cdylib.
 plugins {
 	id 'java'
 }

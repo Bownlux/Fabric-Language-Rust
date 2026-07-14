@@ -19,13 +19,12 @@ use syn::{LitStr, Path, Token};
 /// }
 /// ```
 ///
-/// Generates:
-/// - the single well-known `fabric_rust_register` export (FFI Boundary 2),
-///   which delegates to `fabric_rust::__internal::register` with the entry
-///   table;
-/// - one panic-catching `unsafe extern "system" fn(*mut jni::sys::JNIEnv)`
-///   shim per entry that calls the author's plain `fn()` (a panic is caught
-///   and thrown as a Java `RuntimeException`, never unwound into the JVM).
+/// Expands to the single well-known `fabric_rust_register` export (FFI
+/// Boundary 2), which hands the entry table to
+/// `fabric_rust::__internal::register`, plus one
+/// `unsafe extern "system" fn(*mut jni::sys::JNIEnv)` shim per entry. Each
+/// shim calls your plain `fn()` and catches panics, throwing them as Java
+/// `RuntimeException`s instead of unwinding into the JVM.
 ///
 /// Compile-fails on duplicate entrypoint names or an empty list.
 #[proc_macro]

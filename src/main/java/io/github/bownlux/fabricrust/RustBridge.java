@@ -4,12 +4,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Boundary 3: the static upcall surface for Rust. Static methods only, so the native side
- * can call them with just a cached {@code jclass} from any attached thread.
+ * Boundary 3: the upcall surface for Rust. Static methods only, so the native side can
+ * call them with nothing but a cached {@code jclass} from any attached thread.
  *
- * <p>The v0.1 upcall surface is deliberately tiny (logging). Future surfaces
- * (registries/events/commands) must follow the same static-method style and be versioned
- * via {@link NativeBridge#ABI_VERSION}.
+ * <p>In v0.1 that means logging and nothing else. Anything added later (registries, events,
+ * commands) has to keep the static-method style and be versioned via
+ * {@link NativeBridge#ABI_VERSION}.
  */
 public final class RustBridge {
 	@FunctionalInterface

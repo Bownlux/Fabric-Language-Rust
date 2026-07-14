@@ -15,13 +15,10 @@ repositories {
 	mavenCentral()
 }
 
-// ---------------------------------------------------------------------------
-// Native platform helpers.
-// MUST match io.github.bownlux.fabricrust.NativeLibraryLocator:
+// Native platform helpers. These must match io.github.bownlux.fabricrust.NativeLibraryLocator:
 //   os:   windows | linux | macos
 //   arch: x64 (amd64/x86_64) | arm64 (aarch64/arm64)
 //   lib:  <name>.dll / lib<name>.so / lib<name>.dylib
-// ---------------------------------------------------------------------------
 ext.hostPlatformId = { ->
 	def osName = System.getProperty('os.name').toLowerCase(Locale.ROOT)
 	def osArch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
@@ -88,10 +85,10 @@ def cargoBuildExample = tasks.register('cargoBuildExample', Exec) {
 
 loom {
 	// Declare this project's source set as the mod "fabric-language-rust" (must match
-	// the id in fabric.mod.json). This makes Loom emit fabric.classPathGroups into the
-	// dev launch config so Knot exposes build/classes/java/main + build/resources/main
-	// to the game — without it, dev runs die with ClassNotFoundException for
-	// RustLanguageAdapter at loader freeze.
+	// the id in fabric.mod.json). Loom then emits fabric.classPathGroups into the dev
+	// launch config so Knot exposes build/classes/java/main + build/resources/main to
+	// the game. Without it, dev runs die at loader freeze with ClassNotFoundException
+	// for RustLanguageAdapter.
 	mods {
 		"fabric-language-rust" {
 			sourceSet sourceSets.main
@@ -124,11 +121,11 @@ processResources {
 		expand 'version': version
 	}
 
-	// Ship the host-platform trampoline as a processed resource. This lands it in
-	// build/resources/main — one of the mod's root paths in dev runs — so
+	// Ship the host-platform trampoline as a processed resource. That lands it in
+	// build/resources/main, which is one of the mod's root paths in dev runs, so
 	// RustLanguageAdapter.ensureTrampolineLoaded() can resolve
 	// natives/<platform>/... via ModContainer.findPath both in-dev and from the
-	// built jar (which packs the processResources output automatically).
+	// built jar (the jar packs the processResources output automatically).
 	dependsOn cargoBuildNative
 	from(trampolineLib) {
 		into "natives/${hostPlatformId}"
@@ -174,8 +171,8 @@ test {
 	useJUnitPlatform()
 
 	dependsOn cargoBuildNative, cargoBuildExample
-	// The system properties below are constant path STRINGS, invisible to Gradle's
-	// up-to-date check — track the dylibs' content explicitly so a rebuilt native
+	// The system properties below are constant path strings, invisible to Gradle's
+	// up-to-date check. Track the dylibs' content explicitly so a rebuilt native
 	// library re-runs the FFI harness instead of leaving :test UP-TO-DATE.
 	inputs.files(trampolineLib, exampleLib).withPropertyName('nativeLibraries')
 	jvmArgs '--enable-native-access=ALL-UNNAMED'

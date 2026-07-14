@@ -1,8 +1,8 @@
 //! Implementation details behind `register_entrypoints!` and the log macros.
 //!
-//! Everything here is `#[doc(hidden)]` public so that macro-generated code in
+//! Everything here is `#[doc(hidden)]` public only so macro-generated code in
 //! consumer crates can reach it through `::fabric_rust::__internal::...`.
-//! It is **not** a stable API for humans.
+//! None of it is stable API; don't call it by hand.
 
 use std::any::Any;
 use std::sync::OnceLock;
@@ -59,9 +59,9 @@ impl Level {
 }
 
 /// JNI references cached once, inside the `fabric_rust_register` native frame,
-/// where `FindClass` still resolves against Fabric's Knot classloader. They are
-/// safe to use later from any *attached* thread (static method + global class
-/// ref), where `FindClass` would not be.
+/// where `FindClass` still resolves against Fabric's Knot classloader. A global
+/// class ref plus a static method id can be used later from any attached
+/// thread; a `FindClass` call from one of those threads could not.
 struct LogCache {
     rust_bridge: Global<JClass<'static>>,
     log_method: JStaticMethodID,
@@ -167,20 +167,17 @@ impl<E: std::error::Error> ErrorPolicy<sys::jint, E> for ThrowAndMinusOne {
 
 /// Body of the macro-generated `fabric_rust_register` export (Boundary 2).
 ///
-/// Duties, in order:
-/// 1. Initialize **this cdylib's own** `jni` statics (each consumer cdylib
-///    carries its own copy of the `jni` crate, so the trampoline's `JavaVM`
-///    singleton is not shared). `EnvUnowned::with_env` derives the `JavaVM`
-///    from `env` and registers it as this library's singleton.
-/// 2. Cache global refs needed later: the `RustBridge` class and its static
-///    `log` method. `FindClass` works *here* because we are inside a native
-///    frame whose declaring class (`NativeBridge`) was loaded by Fabric's Knot
-///    classloader; it does **not** work from Rust-spawned threads.
-/// 3. For each declared entrypoint, upcall `registrar.register(name, fnPtr)`,
-///    resolved via `GetObjectClass(registrar)` + `GetMethodID` — never
-///    `FindClass`.
-/// 4. Return `1` (ABI version). Panics are caught and reported as a thrown
-///    `RuntimeException` plus a negative return value.
+/// A few things have to happen in this exact native frame. `EnvUnowned::with_env`
+/// registers this cdylib's own `JavaVM` singleton (each consumer cdylib carries
+/// its own copy of the `jni` crate, so the trampoline's singleton doesn't help
+/// us). We then cache a global ref to the `RustBridge` class and its static
+/// `log` method id: `FindClass` works here because the declaring class of this
+/// frame (`NativeBridge`) was loaded by Fabric's Knot classloader, and it does
+/// not work from Rust-spawned threads. After that we upcall
+/// `registrar.register(name, fnPtr)` for each declared entrypoint, resolved via
+/// `GetObjectClass(registrar)` + `GetMethodID` rather than `FindClass`, and
+/// return 1 (the ABI version). Panics are caught and reported as a thrown
+/// `RuntimeException` plus a negative return value.
 ///
 /// # Safety
 ///
@@ -194,13 +191,13 @@ pub unsafe fn register(
     if env.is_null() {
         return -1;
     }
-    // Safety: caller contract — valid attached env pointer for this frame.
+    // Safety: caller contract, a valid attached env pointer for this frame.
     let mut unowned = unsafe { EnvUnowned::from_raw(env) };
     unowned
         .with_env(|env| -> Result<sys::jint, SdkError> {
-            // Duty 1: `with_env` has already registered this cdylib's JavaVM
-            // singleton (derived from `env` via GetJavaVM). Verify it stuck so
-            // the log macros can rely on `JavaVM::singleton()` later.
+            // with_env has already registered this cdylib's JavaVM singleton
+            // (derived from `env` via GetJavaVM). Verify it stuck so the log
+            // macros can rely on `JavaVM::singleton()` later.
             jni::JavaVM::singleton()?;
 
             if registrar.is_null() {
@@ -214,11 +211,11 @@ pub unsafe fn register(
                 )));
             }
 
-            // Duty 2: cache the RustBridge class + static log method now,
-            // while FindClass resolves against the Knot classloader.
+            // Cache the RustBridge class + static log method now, while
+            // FindClass still resolves against the Knot classloader.
             init_log_cache(env)?;
 
-            // Duty 3: upcall registrar.register(name, fnPtr) for every entry.
+            // Upcall registrar.register(name, fnPtr) for every entry.
             // Safety: `registrar` is a valid local ref of this native frame.
             let registrar = unsafe { JObject::from_raw(env, registrar) };
             let registrar_class = env.get_object_class(&registrar)?;
@@ -248,7 +245,6 @@ pub unsafe fn register(
                 }
             }
 
-            // Duty 4.
             Ok(ABI_VERSION)
         })
         .resolve::<ThrowAndMinusOne>()
@@ -268,7 +264,7 @@ pub unsafe fn invoke_entrypoint(env: *mut sys::JNIEnv, entrypoint: fn(), name: &
         eprintln!("[fabric-rust] invoke_entrypoint(`{name}`) called with a null JNIEnv");
         return;
     }
-    // Safety: caller contract — valid attached env pointer for this frame.
+    // Safety: caller contract, a valid attached env pointer for this frame.
     let mut unowned = unsafe { EnvUnowned::from_raw(env) };
     unowned
         .with_env(|_env| -> Result<(), SdkError> {
