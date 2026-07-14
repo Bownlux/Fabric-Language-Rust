@@ -1,0 +1,26 @@
+[workspace]
+resolver = "3"
+members = [
+    "native",
+    "fabric-rust",
+    "fabric-rust-macros",
+    "example-mod",
+]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "MIT"
+repository = "https://github.com/bownlux/fabric-language-rust"
+
+[workspace.dependencies]
+jni = "0.22.4"
+libloading = "0.9.0"
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
+
+[profile.release]
+# Panics must never unwind across FFI; every boundary catches, but keep unwind
+# so catch_unwind works (abort would take the JVM down on any panic).
+panic = "unwind"

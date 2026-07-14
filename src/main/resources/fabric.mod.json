@@ -1,0 +1,22 @@
+{
+	"schemaVersion": 1,
+	"id": "fabric-language-rust",
+	"version": "${version}",
+	"name": "Fabric Language Rust",
+	"description": "Fabric language module for Rust. Adds support for writing mod entrypoints in Rust via native cdylibs.",
+	"authors": [
+		"Bownlux"
+	],
+	"contact": {
+		"sources": "https://github.com/bownlux/fabric-language-rust"
+	},
+	"license": "MIT",
+	"environment": "*",
+	"languageAdapters": {
+		"rust": "io.github.bownlux.fabricrust.RustLanguageAdapter"
+	},
+	"depends": {
+		"fabricloader": ">=0.19.0",
+		"java": ">=25"
+	}
+}

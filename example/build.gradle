@@ -1,0 +1,40 @@
+// :example — packages the example Rust mod jar.
+// Plain jar: no Loom, no Java sources; just fabric.mod.json + the host-platform cdylib.
+plugins {
+	id 'java'
+}
+
+version = rootProject.version
+group = rootProject.group
+
+base {
+	archivesName = 'flr-example'
+}
+
+processResources {
+	def version = project.version
+	inputs.property 'version', version
+
+	filesMatching('fabric.mod.json') {
+		expand 'version': version
+	}
+}
+
+jar {
+	dependsOn rootProject.tasks.named('cargoBuildExample')
+	from(rootProject.layout.projectDirectory.file("rust/target/release/${rootProject.mapNativeLibraryName('example_mod')}")) {
+		into "natives/${rootProject.hostPlatformId}"
+	}
+
+	// Release builds merge the CI cross-compiled natives, staged by
+	// .github/workflows/build.yml as <extraNativesDir>/natives/<platform>/<lib>.
+	if (rootProject.hasProperty('extraNativesDir')) {
+		from(rootProject.file(rootProject.property('extraNativesDir'))) {
+			include 'natives/*/example_mod.dll'
+			include 'natives/*/libexample_mod.so'
+			include 'natives/*/libexample_mod.dylib'
+			// The host platform's cdylib already comes from the local cargo build.
+			exclude "natives/${rootProject.hostPlatformId}/**"
+		}
+	}
+}

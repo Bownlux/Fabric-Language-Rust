@@ -1,0 +1,24 @@
+{
+	"schemaVersion": 1,
+	"id": "flr-example",
+	"version": "${version}",
+	"name": "Fabric Language Rust Example",
+	"description": "Example mod written in Rust via fabric-language-rust.",
+	"authors": [
+		"Bownlux"
+	],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			{
+				"adapter": "rust",
+				"value": "example_mod::init"
+			}
+		]
+	},
+	"depends": {
+		"fabric-language-rust": ">=0.1.0",
+		"fabricloader": ">=0.19.0"
+	}
+}

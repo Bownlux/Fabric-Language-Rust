@@ -1,0 +1,14 @@
+[package]
+name = "example-mod"
+description = "Example fabric-language-rust mod"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "example_mod"
+crate-type = ["cdylib"]
+
+[dependencies]
+fabric-rust = { path = "../fabric-rust" }

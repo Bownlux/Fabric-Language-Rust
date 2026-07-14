@@ -1,0 +1,11 @@
+[package]
+name = "fabric-rust"
+description = "SDK for writing Fabric (Minecraft) mod entrypoints in Rust via fabric-language-rust"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+jni = { workspace = true }
+fabric-rust-macros = { path = "../fabric-rust-macros" }

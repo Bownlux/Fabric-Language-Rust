@@ -1,0 +1,114 @@
+name: build
+
+on: [push, pull_request]
+
+jobs:
+  # Host-platform build: cargo crates + adapter jar + the no-Minecraft FFI harness test.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and test
+        run: ./gradlew build test --stacktrace
+
+  # ---------------------------------------------------------------------------
+  # Release cross-build matrix: on tag pushes, build the trampoline + example
+  # cdylibs for all five supported targets. release-package (below) merges them
+  # into the shipped jars — dev/branch builds still ship host natives only.
+  # ---------------------------------------------------------------------------
+  release-natives:
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      matrix:
+        include:
+          - { os: windows-latest,   target: x86_64-pc-windows-msvc,     platform: windows-x64 }
+          - { os: ubuntu-latest,    target: x86_64-unknown-linux-gnu,   platform: linux-x64 }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu,  platform: linux-arm64 }
+          - { os: macos-13,         target: x86_64-apple-darwin,        platform: macos-x64 }
+          - { os: macos-latest,     target: aarch64-apple-darwin,       platform: macos-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build natives
+        working-directory: rust
+        run: cargo build --release --target ${{ matrix.target }} -p fabric-language-rust-native -p example-mod
+      - uses: actions/upload-artifact@v4
+        with:
+          name: natives-${{ matrix.platform }}
+          path: |
+            rust/target/${{ matrix.target }}/release/*.dll
+            rust/target/${{ matrix.target }}/release/*.so
+            rust/target/${{ matrix.target }}/release/*.dylib
+
+  # ---------------------------------------------------------------------------
+  # Release packaging: stage the cross-compiled natives as
+  # <staging>/natives/<platform>/<mapped-lib-name> (cargo already emits the
+  # platform-correct file names: <name>.dll / lib<name>.so / lib<name>.dylib),
+  # rebuild the jars with -PextraNativesDir so both the adapter jar and the
+  # example jar bundle all five platforms, then attach them to the release.
+  # ---------------------------------------------------------------------------
+  release-package:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: release-natives
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Download cross-compiled natives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: natives-*
+          path: natives-artifacts
+
+      - name: Stage natives as natives/<platform>/<lib>
+        run: |
+          mkdir -p staging/natives
+          for dir in natives-artifacts/natives-*; do
+            platform="$(basename "$dir")"
+            platform="${platform#natives-}"
+            mkdir -p "staging/natives/$platform"
+            cp "$dir"/* "staging/natives/$platform/"
+          done
+          find staging -type f
+
+      - name: Build release jars (all platforms bundled)
+        run: ./gradlew build "-PextraNativesDir=$GITHUB_WORKSPACE/staging" --stacktrace
+
+      - name: Attach jars to the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/libs/*.jar
+            example/build/libs/*.jar

@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Rust / Cargo
+rust/target/
+
+# Fabric dev runtime
+run/
+logs/
+remappedSrc/
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+.metadata/
+
+# OS
+.DS_Store
+Thumbs.db

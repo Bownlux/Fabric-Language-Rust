@@ -1,0 +1,230 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+	mavenCentral()
+}
+
+// ---------------------------------------------------------------------------
+// Native platform helpers.
+// MUST match io.github.bownlux.fabricrust.NativeLibraryLocator:
+//   os:   windows | linux | macos
+//   arch: x64 (amd64/x86_64) | arm64 (aarch64/arm64)
+//   lib:  <name>.dll / lib<name>.so / lib<name>.dylib
+// ---------------------------------------------------------------------------
+ext.hostPlatformId = { ->
+	def osName = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+	def osArch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+	def os
+	if (osName.contains('win')) {
+		os = 'windows'
+	} else if (osName.contains('mac') || osName.contains('darwin')) {
+		os = 'macos'
+	} else {
+		os = 'linux'
+	}
+	def arch
+	switch (osArch) {
+		case 'amd64':
+		case 'x86_64':
+			arch = 'x64'
+			break
+		case 'aarch64':
+		case 'arm64':
+			arch = 'arm64'
+			break
+		default:
+			throw new GradleException("fabric-language-rust: unsupported host architecture '${osArch}'")
+	}
+	return "${os}-${arch}".toString()
+}()
+
+ext.mapNativeLibraryName = { String name ->
+	if (hostPlatformId.startsWith('windows-')) {
+		return "${name}.dll".toString()
+	}
+	if (hostPlatformId.startsWith('macos-')) {
+		return "lib${name}.dylib".toString()
+	}
+	return "lib${name}.so".toString()
+}
+
+def rustDir = layout.projectDirectory.dir('rust')
+def trampolineLib = rustDir.file("target/release/${mapNativeLibraryName('fabric_language_rust')}")
+def exampleLib = rustDir.file("target/release/${mapNativeLibraryName('example_mod')}")
+
+// Cargo source snapshot for up-to-date checks (lazily evaluated; empty if rust/ absent).
+def cargoInputs = fileTree(rustDir) {
+	exclude 'target/**'
+}
+
+def cargoBuildNative = tasks.register('cargoBuildNative', Exec) {
+	group = 'rust'
+	description = 'Builds the JNI trampoline cdylib (crate fabric-language-rust-native) with cargo (host target, release).'
+	workingDir rustDir
+	commandLine 'cargo', 'build', '--release', '-p', 'fabric-language-rust-native'
+	inputs.files(cargoInputs).withPropertyName('rustSources')
+	outputs.file(trampolineLib).withPropertyName('trampolineLibrary')
+}
+
+def cargoBuildExample = tasks.register('cargoBuildExample', Exec) {
+	group = 'rust'
+	description = 'Builds the example mod cdylib (crate example-mod) with cargo (host target, release).'
+	workingDir rustDir
+	commandLine 'cargo', 'build', '--release', '-p', 'example-mod'
+	inputs.files(cargoInputs).withPropertyName('rustSources')
+	outputs.file(exampleLib).withPropertyName('exampleLibrary')
+}
+
+loom {
+	// Declare this project's source set as the mod "fabric-language-rust" (must match
+	// the id in fabric.mod.json). This makes Loom emit fabric.classPathGroups into the
+	// dev launch config so Knot exposes build/classes/java/main + build/resources/main
+	// to the game — without it, dev runs die with ClassNotFoundException for
+	// RustLanguageAdapter at loader freeze.
+	mods {
+		"fabric-language-rust" {
+			sourceSet sourceSets.main
+		}
+	}
+
+	runs {
+		configureEach {
+			// Java 25 (JEP 472) prints native-access warnings unless granted explicitly.
+			vmArg '--enable-native-access=ALL-UNNAMED'
+		}
+	}
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	testImplementation platform('org.junit:junit-bom:6.1.2')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+	def version = project.version
+	inputs.property 'version', version
+
+	filesMatching('fabric.mod.json') {
+		expand 'version': version
+	}
+
+	// Ship the host-platform trampoline as a processed resource. This lands it in
+	// build/resources/main — one of the mod's root paths in dev runs — so
+	// RustLanguageAdapter.ensureTrampolineLoaded() can resolve
+	// natives/<platform>/... via ModContainer.findPath both in-dev and from the
+	// built jar (which packs the processResources output automatically).
+	dependsOn cargoBuildNative
+	from(trampolineLib) {
+		into "natives/${hostPlatformId}"
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	def projectName = project.name
+	inputs.property 'projectName', projectName
+
+	from('LICENSE') {
+		rename { "${it}_$projectName" }
+	}
+
+	// The host-platform trampoline arrives via processResources (see above).
+	// Release builds additionally merge the CI cross-compiled natives, staged by
+	// .github/workflows/build.yml as <extraNativesDir>/natives/<platform>/<lib>.
+	if (project.hasProperty('extraNativesDir')) {
+		from(rootProject.file(project.property('extraNativesDir'))) {
+			include 'natives/*/fabric_language_rust.dll'
+			include 'natives/*/libfabric_language_rust.so'
+			include 'natives/*/libfabric_language_rust.dylib'
+			// The host platform's trampoline already comes from the local cargo build.
+			exclude "natives/${hostPlatformId}/**"
+		}
+	}
+}
+
+test {
+	useJUnitPlatform()
+
+	dependsOn cargoBuildNative, cargoBuildExample
+	// The system properties below are constant path STRINGS, invisible to Gradle's
+	// up-to-date check — track the dylibs' content explicitly so a rebuilt native
+	// library re-runs the FFI harness instead of leaving :test UP-TO-DATE.
+	inputs.files(trampolineLib, exampleLib).withPropertyName('nativeLibraries')
+	jvmArgs '--enable-native-access=ALL-UNNAMED'
+
+	// NativeBridgeHarnessTest drives the full FFI chain without Minecraft.
+	systemProperty 'flr.test.trampoline', trampolineLib.asFile.absolutePath
+	systemProperty 'flr.test.exampleLib', exampleLib.asFile.absolutePath
+
+	// The fabric-loader dev log4j config on the test classpath writes logs/ relative
+	// to the working directory; keep that out of the repository root so it is cleaned
+	// by `gradlew clean` and never staged by git. (The harness only uses the absolute
+	// flr.test.* paths above, so the working directory is otherwise irrelevant.)
+	def testWorkDir = layout.buildDirectory.dir('test-work')
+	workingDir = testWorkDir.get().asFile
+	doFirst {
+		testWorkDir.get().asFile.mkdirs()
+	}
+
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+		showStandardStreams = true
+	}
+}
+
+// Copy the packaged example mod into run/mods so runClient/runServer exercise
+// the full adapter path on a real game instance.
+def copyExampleJar = tasks.register('copyExampleJar', Copy) {
+	group = 'rust'
+	description = 'Copies the example mod jar into run/mods for dev runs.'
+	dependsOn ':example:jar'
+	from({ project(':example').tasks.named('jar').flatMap { it.archiveFile } })
+	into layout.projectDirectory.dir('run/mods')
+}
+
+tasks.configureEach { task ->
+	if (task.name == 'runClient' || task.name == 'runServer') {
+		task.dependsOn copyExampleJar
+	}
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create('mavenJava', MavenPublication) {
+			from components.java
+		}
+	}
+
+	repositories {
+		// Add repositories to publish to here.
+	}
+}
