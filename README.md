@@ -18,9 +18,8 @@ Targets **Minecraft 26.1+**, **Fabric Loader ≥ 0.19**, **Java 25**. See
 > yet; everything is consumed by building this repository from source. The FFI contract
 > (ABI version 1) is frozen, but crate names and APIs above it are provisional.
 >
-> **Maintenance note:** this project won't get major updates that often — most of my
-> time currently goes to [RevivalSMP.net](https://RevivalSMP.net) and Retromod. Issues
-> and PRs are still welcome; expect slow turnaround.
+> **Note:** this won't get major updates that often since I'm busy working on
+> [RevivalSMP.net](https://RevivalSMP.net) and Retromod.
 
 ## Quickstart for mod authors
 
