@@ -65,11 +65,22 @@ def cargoInputs = fileTree(rustDir) {
 	exclude 'target/**'
 }
 
+// Rewrite absolute paths to fixed strings inside the compiled natives, so a
+// binary does not carry whoever built it and where. Two prefixes matter: this
+// checkout, and the cargo registry (dependency sources show up in panic
+// locations). CI sets the identical flags (.github/workflows/build.yml), which
+// is what makes a local rebuild comparable to a release artifact. cargo's
+// trim-paths would do this natively but is unstable on 1.96. See VERIFYING.md.
+def cargoHome = System.getenv('CARGO_HOME') ?: "${System.getProperty('user.home')}/.cargo"
+def reproRustFlags = "--remap-path-prefix=${rootDir}=/flr --remap-path-prefix=${cargoHome}=/cargo".toString()
+
 def cargoBuildNative = tasks.register('cargoBuildNative', Exec) {
 	group = 'rust'
 	description = 'Builds the JNI trampoline cdylib (crate fabric-language-rust-native) with cargo (host target, release).'
 	workingDir rustDir
-	commandLine 'cargo', 'build', '--release', '-p', 'fabric-language-rust-native'
+	environment 'RUSTFLAGS', reproRustFlags
+	inputs.property 'rustFlags', reproRustFlags
+	commandLine 'cargo', 'build', '--locked', '--release', '-p', 'fabric-language-rust-native'
 	inputs.files(cargoInputs).withPropertyName('rustSources')
 	outputs.file(trampolineLib).withPropertyName('trampolineLibrary')
 }
@@ -78,7 +89,9 @@ def cargoBuildExample = tasks.register('cargoBuildExample', Exec) {
 	group = 'rust'
 	description = 'Builds the example mod cdylib (crate example-mod) with cargo (host target, release).'
 	workingDir rustDir
-	commandLine 'cargo', 'build', '--release', '-p', 'example-mod'
+	environment 'RUSTFLAGS', reproRustFlags
+	inputs.property 'rustFlags', reproRustFlags
+	commandLine 'cargo', 'build', '--locked', '--release', '-p', 'example-mod'
 	inputs.files(cargoInputs).withPropertyName('rustSources')
 	outputs.file(exampleLib).withPropertyName('exampleLibrary')
 }
@@ -224,4 +237,15 @@ publishing {
 	repositories {
 		// Add repositories to publish to here.
 	}
+}
+
+// Reproducible archives: no file timestamps, stable entry order, fixed
+// permissions. Two builds of the same commit then produce byte-identical jars,
+// which is what lets anyone check a Modrinth download against a release
+// artifact by hash. See VERIFYING.md.
+tasks.withType(AbstractArchiveTask).configureEach {
+	preserveFileTimestamps = false
+	reproducibleFileOrder = true
+	dirPermissions { unix(0755) }
+	filePermissions { unix(0644) }
 }

@@ -14,7 +14,8 @@ implemented with `java.lang.reflect.Proxy` objects that call back into the regis
 Rust functions.
 
 Targets Minecraft 26.1+, Fabric Loader 0.19+, Java 25. [DESIGN.md](DESIGN.md) has the
-full architecture and FFI contract.
+full architecture and FFI contract, and [VERIFYING.md](VERIFYING.md) covers how to check
+that a published jar was built from this source.
 
 This is v0.1. The adapter mod is on
 [Modrinth](https://modrinth.com/mod/fabric-language-rust); the `fabric-rust` SDK crate
@@ -168,7 +169,8 @@ Consumer jars carry one cdylib per supported platform at
 | `macos-arm64` | `aarch64-apple-darwin` | `natives/macos-arm64/libmy_mod.dylib` |
 
 Those five targets are the release matrix. Local builds bundle host-platform natives
-only, since Gradle runs plain `cargo build --release` with no cross-compilation. So a
+only, since Gradle runs `cargo build --locked --release` for the host with no
+cross-compilation. So a
 jar built on an Apple Silicon Mac contains only `natives/macos-arm64/` and refuses to
 load anywhere else, with an error saying so. On tag pushes, the CI cross-build matrix
 in [.github/workflows/build.yml](.github/workflows/build.yml) builds all five targets
@@ -214,6 +216,25 @@ assert the reported ABI version and registered names, `invokeEntrypoint("init")`
 assert the hello line arrived at a Java-side test sink. It also checks the error paths
 (nonexistent library path, unknown entrypoint name, null function pointer) throw clean
 Java exceptions instead of crashing the JVM.
+
+## Verifying a release
+
+This mod ships compiled Rust libraries inside its jar, so you are trusting binaries you
+cannot read. You should not have to take my word for where they came from.
+
+Every published file is built by GitHub Actions from a tagged commit, in a public log,
+and signed with a build provenance attestation. Nothing is uploaded from my machine. To
+check a jar you downloaded:
+
+```sh
+gh attestation verify fabric-language-rust-0.1.0.jar --repo Bownlux/Fabric-Language-Rust
+```
+
+The Rust compiler version, the Rust dependency lockfile, and the Minecraft/loader
+versions are all pinned, and jars are built reproducibly (no timestamps, stable entry
+order, build paths stripped from the natives), so the same commit gives the same bytes.
+[VERIFYING.md](VERIFYING.md) has the full walkthrough, including what each native
+library exports and how to reproduce a build yourself.
 
 ## Known limits (v0.1)
 

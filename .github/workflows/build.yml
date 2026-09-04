@@ -2,6 +2,12 @@ name: build
 
 on: [push, pull_request]
 
+# Everything shipped to users is built here, in public, from a tagged commit.
+# Nothing is ever uploaded from a developer machine. See VERIFYING.md for how
+# to check a downloaded jar against these runs.
+permissions:
+  contents: read
+
 jobs:
   # Host-platform build: cargo crates + adapter jar + the no-Minecraft FFI harness test.
   build:
@@ -10,8 +16,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Read pinned Rust version
+        id: rust
+        shell: bash
+        run: echo "channel=$(grep '^channel' rust/rust-toolchain.toml | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
+
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
 
       - name: Set up JDK 25
         uses: actions/setup-java@v4
@@ -42,12 +55,34 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Read pinned Rust version
+        id: rust
+        shell: bash
+        run: echo "channel=$(grep '^channel' rust/rust-toolchain.toml | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ steps.rust.outputs.channel }}
           targets: ${{ matrix.target }}
+
+      # --locked forbids any dependency resolution not already in Cargo.lock.
+      # The remap rewrites this checkout's absolute path to a fixed string so the
+      # runner's directory layout is not baked into the binaries. build.gradle
+      # sets the identical flag for local builds, so both sides compile the same
+      # way. (cargo's trim-paths would be tidier but is still unstable on 1.96.)
       - name: Build natives
         working-directory: rust
-        run: cargo build --release --target ${{ matrix.target }} -p fabric-language-rust-native -p example-mod
+        shell: bash
+        run: |
+          export RUSTFLAGS="--remap-path-prefix=$GITHUB_WORKSPACE=/flr --remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo"
+          cargo build --locked --release --target ${{ matrix.target }} -p fabric-language-rust-native -p example-mod
+
+      - name: Record native checksums
+        working-directory: rust/target/${{ matrix.target }}/release
+        shell: bash
+        run: shasum -a 256 *.dll *.so *.dylib 2>/dev/null | tee "natives-${{ matrix.platform }}.sha256"
+
       - uses: actions/upload-artifact@v4
         with:
           name: natives-${{ matrix.platform }}
@@ -60,19 +95,28 @@ jobs:
   # <staging>/natives/<platform>/<mapped-lib-name> (cargo already emits the
   # platform-correct file names: <name>.dll / lib<name>.so / lib<name>.dylib),
   # rebuild the jars with -PextraNativesDir so both the adapter jar and the
-  # example jar bundle all five platforms, then attach them to the release.
+  # example jar bundle all five platforms, then sign and attach them.
   release-package:
     if: startsWith(github.ref, 'refs/tags/')
     needs: release-natives
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write      # create the release
+      id-token: write      # sign the provenance attestation
+      attestations: write  # record it
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Read pinned Rust version
+        id: rust
+        shell: bash
+        run: echo "channel=$(grep '^channel' rust/rust-toolchain.toml | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
+
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
 
       - name: Set up JDK 25
         uses: actions/setup-java@v4
@@ -103,9 +147,30 @@ jobs:
       - name: Build release jars (all platforms bundled)
         run: ./gradlew build "-PextraNativesDir=$GITHUB_WORKSPACE/staging" --stacktrace
 
+      # What is actually in the jars, printed into the public build log so the
+      # log alone shows every file that shipped and its hash.
+      - name: List and checksum release artifacts
+        run: |
+          for jar in build/libs/*.jar example/build/libs/*.jar; do
+            echo "=== $jar ==="
+            unzip -l "$jar"
+          done
+          sha256sum build/libs/*.jar example/build/libs/*.jar | tee SHA256SUMS.txt
+
+      # Cryptographic proof, signed by GitHub, binding each jar's digest to this
+      # commit and this workflow file. Verified with:
+      #   gh attestation verify <jar> --repo Bownlux/Fabric-Language-Rust
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            build/libs/*.jar
+            example/build/libs/*.jar
+
       - name: Attach jars to the GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             build/libs/*.jar
             example/build/libs/*.jar
+            SHA256SUMS.txt

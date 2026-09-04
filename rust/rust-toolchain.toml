@@ -1,0 +1,7 @@
+# Pinned so the native libraries in a release jar can be traced to an exact
+# compiler. Moderators verifying a build, and CI, both resolve this file, so
+# "built from this source" means one specific rustc, not whatever stable was
+# that week. Bump deliberately, in its own commit.
+[toolchain]
+channel = "1.96.0"
+profile = "minimal"
