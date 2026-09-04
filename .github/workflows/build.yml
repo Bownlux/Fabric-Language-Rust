@@ -165,7 +165,11 @@ jobs:
             echo "=== $jar ==="
             unzip -l "$jar"
           done
-          sha256sum build/libs/*.jar example/build/libs/*.jar | tee SHA256SUMS.txt
+          # Bare filenames, not build/libs/... paths: release assets download flat,
+          # so this is what makes `sha256sum -c SHA256SUMS.txt` work as-is.
+          for jar in build/libs/*.jar example/build/libs/*.jar; do
+            ( cd "$(dirname "$jar")" && sha256sum "$(basename "$jar")" )
+          done | tee SHA256SUMS.txt
 
       # Cryptographic proof, signed by GitHub, binding each jar's digest to this
       # commit and this workflow file. Verified with:

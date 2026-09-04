@@ -18,7 +18,14 @@ gh attestation verify fabric-language-rust-0.1.0.jar --repo Bownlux/Fabric-Langu
 
 That either prints the commit, workflow, and run that produced the exact bytes you
 have, or it fails. It is a cryptographic signature from GitHub's signing infrastructure,
-so it cannot be forged by the repository owner.
+so it cannot be forged by the repository owner. One attestation covers all the jars in
+a release, so verifying any one of them returns the same statement.
+
+Each release also carries `SHA256SUMS.txt`. Download the assets into one directory and:
+
+```sh
+sha256sum -c SHA256SUMS.txt      # shasum -a 256 -c SHA256SUMS.txt on macOS
+```
 
 ## What is in the jar and why
 
