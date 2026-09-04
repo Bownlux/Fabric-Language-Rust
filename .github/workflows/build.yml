@@ -86,7 +86,12 @@ jobs:
       - name: Record native checksums
         working-directory: rust/target/${{ matrix.target }}/release
         shell: bash
-        run: find . -maxdepth 1 -type f \( -name '*.dll' -o -name '*.so' -o -name '*.dylib' \) -exec shasum -a 256 {} +
+        run: |
+          # git-bash on the Windows runner has sha256sum but no shasum; macOS is
+          # the other way round.
+          HASH_CMD="sha256sum"
+          command -v sha256sum >/dev/null 2>&1 || HASH_CMD="shasum -a 256"
+          find . -maxdepth 1 -type f \( -name '*.dll' -o -name '*.so' -o -name '*.dylib' \) -exec $HASH_CMD {} +
 
       - uses: actions/upload-artifact@v4
         with:
