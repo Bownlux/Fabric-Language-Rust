@@ -27,7 +27,7 @@ anywhere), Fabric Loader 0.19+, Java 25.
 Fabric-Language-Rust/
 ├── DESIGN.md                  ← this file
 ├── README.md
-├── LICENSE                    (MIT, © Bownlux)
+├── LICENSE                    (CC0 1.0 Universal)
 ├── settings.gradle / build.gradle / gradle.properties / gradlew*
 ├── src/main/java/io/github/bownlux/fabricrust/
 │   ├── RustLanguageAdapter.java      LanguageAdapter impl (needs a public no-arg ctor)
