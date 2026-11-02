@@ -1,5 +1,9 @@
 # fabric-language-rust
 
+> **Project status:** This project is discontinued and is no longer actively
+> maintained. Updates may happen approximately once every six months, if at all.
+> Use it at your own risk; issues and pull requests may not receive a response.
+
 <img src="src/main/resources/assets/fabric-language-rust/icon.png" alt="" width="120" align="right">
 
 A [Fabric](https://fabricmc.net/) language module, like
@@ -260,4 +264,4 @@ threads.
 ## Non-affiliation
 
 This is a community project by Bownlux, not affiliated with, endorsed by, or supported
-by FabricMC or Mojang. MIT licensed, see [LICENSE](LICENSE), © Bownlux.
+by FabricMC or Mojang. Released under the [CC0 1.0 Universal dedication](LICENSE).

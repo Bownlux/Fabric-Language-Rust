@@ -10,7 +10,7 @@ members = [
 [workspace.package]
 edition = "2024"
 version = "0.1.0"
-license = "MIT"
+license = "CC0-1.0"
 repository = "https://github.com/bownlux/fabric-language-rust"
 
 [workspace.dependencies]
